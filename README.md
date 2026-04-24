@@ -1,226 +1,237 @@
-# Autonomous Supply Chain with Gemini 3 Flash & AlloyDB AI
+# Multi-Agent Supply Chain System
 
-Build an **agentic supply chain system** that "sees" physical inventory using Gemini 3 Flash (Code Execution), "remembers" millions of parts using AlloyDB AI (ScaNN), and "transacts" using the A2A Protocol.
+An end-to-end autonomous supply chain system that combines computer vision, semantic vector search, and agent-to-agent orchestration to automate physical inventory management — no human counting, classifying, or reordering required.
 
-## What You'll Build
+## What It Does
 
-A multi-agent system featuring:
-- **Vision Agent**: Uses Gemini 3 Flash (MINIMAL thinking) to count inventory items deterministically via code execution, plus Gemini 2.5 Flash Lite for smart query generation with structured outputs
-- **Supplier Agent**: Searches millions of parts using AlloyDB ScaNN vector search with real semantic embeddings (Vertex AI text-embedding-005)
-- **Control Tower**: Real-time WebSocket UI with automatic image compression for orchestrating autonomous workflows
+Upload a photo of a warehouse shelf. The system counts what's there, identifies what's running low, searches a supplier parts database semantically, and surfaces the best matches — entirely on its own.
+
+## How It Works
+
+The system is made up of four services that communicate in real time:
+
+**Vision Agent** (port 8081) — receives an image, uses Gemini 3 Flash with Code Execution to count inventory items deterministically, then generates structured semantic search queries from what it sees.
+
+**Supplier Agent** (port 8082) — takes those queries and searches the parts database using AlloyDB's ScaNN vector index, returning the most semantically similar supplier matches.
+
+**Logistics Agent** (port 8083) — handles order routing and fulfillment decisions once a supplier match is identified.
+
+**Control Tower** (port 8080) — the browser-based UI that orchestrates all three agents over WebSocket, compresses uploaded images, and streams results live.
+
+Each agent exposes a `/.well-known/agent-card.json` following the A2A Protocol, making them independently discoverable and swappable.
 
 ## Architecture
 
-![Autonomous Supply Chain Architecture](./assets/architecture-diagram.png)
-
-**Key Components:**
-- **Control Tower (port 8080):** WebSocket-based UI with automatic image compression for real-time orchestration
-- **Vision Agent (port 8081):** Gemini 3 Flash (MINIMAL thinking) with Code Execution + Gemini 2.5 Flash Lite for query generation (API key)
-- **Supplier Agent (port 8082):** AlloyDB ScaNN vector search with real semantic embeddings from Vertex AI (GCP credentials)
-- **AlloyDB AI:** Enterprise PostgreSQL with ScaNN index and text-embedding-005 for semantic understanding
-- **A2A Protocol:** Dynamic agent discovery via `/.well-known/agent-card.json`
-
-**Hybrid Architecture:** Vision Agent uses Gemini API (simple setup, free tier available), while Supplier Agent uses GCP services (enterprise-grade, compliance-ready). Image optimization and intelligent query generation happen automatically.
-
-## Quick Start
-
-### Prerequisites
-
-- Google Cloud Project with billing enabled
-- Cloud Shell or local environment with:
-  - `gcloud` CLI configured
-  - Python 3.9+
-  - Git
-
-### Setup & Run
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/MohitBhimrajka/visual-commerce-gemini-3-alloydb.git
-cd visual-commerce-gemini-3-alloydb
-
-# 2. Run setup (validates environment, enables APIs, creates .env)
-sh setup.sh
-
-# 3. Provision AlloyDB (if not already done)
-# See codelab for easy-alloydb-setup instructions
-
-# 4. Set up database schema and data in AlloyDB Studio
-# See codelab for SQL steps
-
-# 5. Start all services
-sh run.sh
+```
+Control Tower (port 8080)
+  FastAPI + WebSocket + PIL image compression
+       │
+       ├──▶ Vision Agent (port 8081)
+       │       Gemini 3 Flash + Code Execution
+       │       → Gemini 2.5 Flash Lite for query generation
+       │
+       ├──▶ Supplier Agent (port 8082)
+       │       AlloyDB ScaNN vector search
+       │       Vertex AI text-embedding-005
+       │
+       └──▶ Logistics Agent (port 8083)
+               Order routing and fulfillment logic
 ```
 
-> **📌 Note:** All commands assume you're in the repo root (`visual-commerce-gemini-3-alloydb/`). If commands fail with "No such file", verify your location with `pwd` and navigate back to the repo.
+## Tech Stack
 
-Open http://localhost:8080 to see the Control Tower.
+| Layer | Technology |
+|---|---|
+| Vision & counting | Gemini 3 Flash with Code Execution |
+| Query generation | Gemini 2.5 Flash Lite |
+| Vector database | AlloyDB AI with ScaNN index |
+| Embeddings | Vertex AI text-embedding-005 |
+| DB connection | AlloyDB Python Connector (no Auth Proxy needed) |
+| Backend | FastAPI (async, WebSocket-native) |
+| Agent discovery | A2A Protocol |
+| Containerization | Docker (Python 3.12 slim) |
 
 ## Repository Structure
 
 ```
-visual-commerce-gemini-3-alloydb/
-├── README.md                    # You are here
-├── setup.sh                     # Environment setup script
-├── run.sh                       # Service startup script
-├── cleanup.sh                   # Resource cleanup script
-├── .env.example                 # Environment variables template
+MultiAgentSupplyChainSystem/
+├── setup.sh                      # Environment setup: validates gcloud, enables APIs, generates .env
+├── run.sh                        # Starts all four services with health checks
+├── Dockerfile                    # Single-container build exposing port 8080
+├── .env.example                  # Configuration template
+├── tutorial.md                   # Step-by-step codelab guide
 │
-├── agents/                      # Agentic components
-│   ├── vision-agent/            # Gemini 3 Flash vision analysis
-│   └── supplier-agent/          # AlloyDB ScaNN inventory search
+├── agents/
+│   ├── vision-agent/             # Gemini vision + structured query generation
+│   ├── supplier-agent/           # AlloyDB ScaNN semantic search
+│   └── logistics-agent/          # Order routing and fulfillment
 │
-├── frontend/                    # FastAPI + WebSocket Control Tower
-│   ├── app.py                   # Main server
-│   └── static/                  # Real-time UI
+├── frontend/
+│   ├── app.py                    # FastAPI + WebSocket server (Control Tower)
+│   └── static/                   # Browser UI assets
 │
-├── database/                    # AlloyDB schema & seeding
-│   ├── seed.py                  # Backup seeding script (uses AlloyDB Connector)
-│   └── seed_data.sql            # Schema + data (for AlloyDB Studio)
+├── database/
+│   ├── seed.py                   # Seeds inventory via AlloyDB Connector
+│   └── seed_data.sql             # Schema + 20 sample parts with vector embeddings
 │
-├── test-images/                 # Sample warehouse images for testing
+├── deploy/
+│   └── deploy.sh                 # Cloud Run deployment script
 │
-└── logs/                        # Runtime logs (gitignored)
-    ├── vision-agent.log
-    ├── supplier-agent.log
-    └── frontend.log
+├── assets/                       # Architecture diagrams and screenshots
+└── test-images/                  # Sample warehouse shelf images for testing
 ```
 
-## What Each Command Does
+## Prerequisites
 
-### `sh setup.sh`
+- Google Cloud project with billing enabled
+- `gcloud` CLI installed and authenticated
+- Python 3.9 or higher
+- AlloyDB instance provisioned (see setup steps below)
 
-1. **Validates environment** — Checks gcloud, APIs, project settings, Python 3
-2. **Enables APIs** — AlloyDB, Vertex AI, Compute Engine, Service Networking
-3. **Configures Gemini** — Prompts for your Gemini API key
-4. **Detects AlloyDB** — Auto-discovers instance URI or prompts for input
-5. **Creates .env** — Generates configuration file
+## Getting Started
 
-### `sh run.sh`
+### 1. Clone the repository
 
-1. **Launches Vision Agent** — Port 8081 (Gemini 3 Flash MINIMAL thinking + Gemini 2.5 Flash Lite query generation)
-2. **Launches Supplier Agent** — Port 8082 (AlloyDB ScaNN via Python Connector)
-3. **Starts Control Tower** — Port 8080 (FastAPI + WebSocket UI with automatic image compression)
-
-## Database Connection
-
-The Supplier Agent connects to AlloyDB via the **AlloyDB Python Connector** (no Auth Proxy needed):
-
-```python
-from google.cloud.alloydbconnector import Connector
-
-connector = Connector()
-conn = connector.connect(
-    inst_uri,         # projects/PROJECT/locations/REGION/clusters/CLUSTER/instances/INSTANCE
-    "pg8000",         # Driver
-    user="postgres",
-    password=DB_PASS,
-    ip_type="PUBLIC",  # Use "PRIVATE" for Cloud Run
-)
+```bash
+git clone https://github.com/shabbeersyed/MultiAgentSupplyChainSystem.git
+cd MultiAgentSupplyChainSystem
 ```
 
-This handles IAM authentication, SSL/TLS, and connection routing automatically.
+### 2. Run setup
 
-## Key Technologies
+The setup script validates your environment, enables required GCP APIs, and generates a `.env` configuration file.
 
-- **Gemini 3 Flash** — AI model with MINIMAL thinking level and code execution for deterministic vision analysis
-- **Gemini 2.5 Flash Lite** — Fast LLM for semantic query generation with structured outputs (Pydantic models)
-- **AlloyDB AI** — PostgreSQL-compatible database with ScaNN vector search (10x faster than HNSW)
-- **AlloyDB Python Connector** — Secure connection without Auth Proxy (IAM auth, managed SSL)
-- **Vertex AI text-embedding-005** — Real semantic embeddings for accurate similarity matching
-- **A2A Protocol** — Agent-to-Agent communication standard for plug-and-play agent composition
-- **FastAPI** — Modern Python web framework with WebSocket support and PIL-based image compression
+```bash
+sh setup.sh
+```
+
+It will prompt you for:
+- Your Gemini API key (get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+- Your AlloyDB region, cluster, and instance details
+- Your database password
+
+You can re-run `sh setup.sh` safely at any time — it loads existing `.env` values.
+
+### 3. Set up the database
+
+Connect to AlloyDB Studio in the GCP Console and run the following SQL blocks in order.
+
+Enable extensions:
+```sql
+CREATE EXTENSION IF NOT EXISTS google_ml_integration CASCADE;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS alloydb_scann CASCADE;
+```
+
+Create the inventory table:
+```sql
+CREATE TABLE IF NOT EXISTS inventory (
+    id SERIAL PRIMARY KEY,
+    part_name TEXT NOT NULL,
+    supplier_name TEXT NOT NULL,
+    description TEXT,
+    stock_level INT DEFAULT 0,
+    part_embedding vector(768)
+);
+```
+
+Seed sample data, generate embeddings, and create the ScaNN index (see `database/seed_data.sql` for the full SQL).
+
+### 4. Enable Public IP on AlloyDB
+
+In the AlloyDB Console → your instance → Edit → enable Public IP. The Python Connector handles authentication automatically — no authorized networks needed.
+
+### 5. Start all services
+
+```bash
+sh run.sh
+```
+
+Open **http://localhost:8080** for the Control Tower UI.
+
+### 6. Test the workflow
+
+1. Upload a warehouse shelf image (or select one from `test-images/`)
+2. Watch the Vision Agent count items and generate search queries
+3. Watch the Supplier Agent return semantically matched parts
+4. The system places an autonomous reorder
+
+Toggle **DEMO mode** in the UI to pause at each stage and inspect what each agent is doing.
+
+## Configuration
+
+Copy `.env.example` to `.env` and fill in your values:
+
+```
+GOOGLE_CLOUD_PROJECT=your-project-id
+GEMINI_API_KEY=your-gemini-api-key
+ALLOYDB_REGION=us-central1
+ALLOYDB_CLUSTER=your-cluster-name
+ALLOYDB_INSTANCE=your-instance-name
+DB_USER=postgres
+DB_PASS=your-db-password
+DB_NAME=postgres
+```
+
+`ALLOYDB_PROJECT` and `ALLOYDB_SA_KEY_PATH` are only needed when connecting to a shared/workshop AlloyDB instance in a different GCP project.
+
+## Health Checks
+
+Verify each service is running:
+
+```bash
+curl http://localhost:8081/health   # Vision Agent
+curl http://localhost:8082/health   # Supplier Agent
+curl http://localhost:8083/health   # Logistics Agent
+curl http://localhost:8080/api/health  # Control Tower
+```
+
+## Logs
+
+All service logs are written to the `logs/` directory:
+
+```
+logs/vision-agent.log
+logs/supplier-agent.log
+logs/logistics-agent.log
+logs/frontend.log
+```
 
 ## Troubleshooting
 
-### Port conflicts
-
+**Port already in use:**
 ```bash
 lsof -ti:8080 | xargs kill -9
 lsof -ti:8081 | xargs kill -9
 lsof -ti:8082 | xargs kill -9
+lsof -ti:8083 | xargs kill -9
 ```
 
-### AlloyDB connection issues
+**AlloyDB connection refused:**
+- Confirm your `.env` has the correct `ALLOYDB_REGION`, `ALLOYDB_CLUSTER`, and `ALLOYDB_INSTANCE`
+- Enable Public IP on the instance (AlloyDB Console → Instance → Edit → Connectivity)
+- Wait 1–2 minutes after provisioning before connecting
 
-**Symptom**: `Connection refused` or `AlloyDB not configured`
+**Missing GCP APIs:**
+- `setup.sh` will detect and offer to enable any missing APIs automatically
+- Required: `aiplatform.googleapis.com`, `alloydb.googleapis.com`, `compute.googleapis.com`, `servicenetworking.googleapis.com`
 
-**Common causes:**
-1. **AlloyDB not configured** — Check `.env` has correct `ALLOYDB_REGION`, `ALLOYDB_CLUSTER`, and `ALLOYDB_INSTANCE`
-2. **Public IP not enabled** — Enable it in AlloyDB Console → Instance → Edit → Connectivity
-3. **Wrong password** — Check `.env`: `cat .env | grep DB_PASS`
-4. **Instance not ready** — Wait 1-2 minutes after provisioning
-
-### Agent not responding
-
-```bash
-curl http://localhost:8081/health
-curl http://localhost:8082/health
-curl http://localhost:8080/api/health
-```
-
-## 🎁 Bonus: Deploy to Cloud Run
-
-> **Optional** — Everything works locally, but if you want to share your creation with a public URL:
+## Deploying to Cloud Run
 
 ```bash
 sh deploy/deploy.sh
 ```
 
-The script reads your `.env`, asks for your name, and deploys to Cloud Run. When anyone opens your URL, they'll see a popup:
+The script reads your `.env`, builds containers, and deploys all services to Cloud Run with a public URL.
 
-> 🚀 **Deployed by *Your Name*** — Powered by Gemini 3 Flash · AlloyDB AI · A2A Protocol
-> *Completed as part of Code Vipassana Season 14*
-> **[Try the codelab yourself →]**
+## Design Decisions
 
-After dismissing, a persistent bottom badge stays: *"Deployed by Your Name · Code Vipassana S14 · Learn how →"*
+**Why Code Execution for vision?** Asking an LLM to count items and return a number is unreliable. Giving it a Python interpreter and asking it to write counting logic — then run it — produces deterministic, auditable results. The model explains its reasoning in code rather than prose.
 
-> **Completed as part of [Code Vipassana Season 14](https://www.codevipassana.dev/)**
+**Why ScaNN over pgvector HNSW?** ScaNN is 10× faster for filtered search when indices exceed memory, with a 3–4× smaller memory footprint and 8× faster index builds. For searching millions of parts with attribute filters, that difference is significant.
 
-## Cleanup
+**Why A2A Protocol?** Hard-coding agent interactions couples the system too tightly. A2A lets each agent advertise capabilities via a standard card, making the system composable — swap the supplier agent, add a pricing agent, integrate a different logistics provider — without touching orchestration code.
 
-To avoid charges, run the cleanup script:
+## License
 
-```bash
-sh deploy/cleanup.sh
-```
-
-This deletes the AlloyDB cluster, removes any deployed Cloud Run services, and optionally removes local files (logs, `.env`).
-
-If you prefer a manual approach:
-
-```bash
-gcloud alloydb clusters delete YOUR_CLUSTER_NAME \
-  --region=YOUR_REGION \
-  --force
-```
-
-## Technical References
-
-### **Official Documentation & Performance Benchmarks**
-
-**Gemini 3 Flash:**
-- Code Execution API: https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/code-execution-api
-- Developer Guide: https://ai.google.dev/gemini-api/docs/gemini-3
-- Model Documentation: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-flash
-- Pricing: https://ai.google.dev/gemini-api/docs/pricing
-
-**AlloyDB ScaNN Performance (All claims verified from official sources):**
-- ScaNN vs HNSW Benchmarks: https://cloud.google.com/blog/products/databases/how-scann-for-alloydb-vector-search-compares-to-pgvector-hnsw
-  - ✅ 10x faster filtered search (when indices exceed memory)
-  - ✅ 4x faster standard search
-  - ✅ 3-4x smaller memory footprint
-  - ✅ 8x faster index builds
-- Understanding ScaNN: https://cloud.google.com/blog/products/databases/understanding-the-scann-index-in-alloydb
-- AlloyDB Python Connector: https://github.com/GoogleCloudPlatform/alloydb-python-connector
-- AlloyDB AI Documentation: https://cloud.google.com/alloydb/docs/ai
-- Best Practices: https://docs.cloud.google.com/alloydb/docs/ai/best-practices-tuning-scann
-
-**A2A Protocol:**
-- Agent cards at `/.well-known/agent-card.json` (emerging standard)
-- Standardized agent discovery and communication
-
-**Additional Context:**
-- ScaNN is based on 12 years of Google Research and powers Google Search and YouTube at billion-scale
-- Released for general availability: October 2024
-- First PostgreSQL vector index suitable for million-to-billion vectors
+Apache 2.0 — see [LICENSE](LICENSE) for details.
