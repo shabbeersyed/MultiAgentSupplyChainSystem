@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MultiAgent Supply Chain System</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div id="app" x-data="appState()">
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-left">
+    <div class="nav-logo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      </svg>
+    </div>
+    <div class="nav-brand-text">
+      <div class="nav-name">MultiAgent Supply Chain</div>
+      <div class="nav-sub">Autonomous Procurement Intelligence</div>
+    </div>
+  </div>
+
+  <div class="nav-crumbs" x-show="step > 0 && visionResult" x-transition>
+    <div class="nc-item" x-show="visionResult">
+      <span class="nc-label">Items</span>
+      <span class="nc-val" x-text="visionResult?.item_count + ' ' + visionResult?.item_type"></span>
+    </div>
+    <span class="nc-arrow" x-show="supplierResult">→</span>
+    <div class="nc-item" x-show="supplierResult">
+      <span class="nc-label">Supplier</span>
+      <span class="nc-val" x-text="supplierResult?.supplier"></span>
+    </div>
+    <span class="nc-arrow" x-show="orderResult">→</span>
+    <div class="nc-item" x-show="orderResult">
+      <span class="nc-label">Order</span>
+      <span class="nc-val accent" x-text="orderResult?.orderId"></span>
+    </div>
+    <span class="nc-arrow" x-show="logisticsResult">→</span>
+    <div class="nc-item" x-show="logisticsResult">
+      <span class="nc-label">Shipping</span>
+      <span class="nc-val green" x-text="logisticsResult?.shipping_cost"></span>
+    </div>
+  </div>
+
+  <div class="nav-right">
+    <button @click="toggleDemoMode()" class="nav-btn" :class="{'active': demoMode}" x-text="demoMode ? 'Demo Mode' : 'Auto Mode'"></button>
+    <button @click="toggleAudio()" class="nav-btn">
+      <span x-show="audioEnabled">🔊</span>
+      <span x-show="!audioEnabled">🔇</span>
+    </button>
+    <div class="live-pill" :class="wsConnected ? 'on' : 'off'">
+      <div class="live-dot"></div>
+      <span x-text="wsConnected ? 'Live' : 'Offline'"></span>
+    </div>
+    <button @click="resetUpload()" x-show="step > 0" class="nav-btn">↺ New Analysis</button>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero-page" x-show="step === 0">
+  <div class="hero-top">
+    <div class="hero-pill">
+      <div class="hero-pill-dot"></div>
+      Autonomous · Production Ready · A2A Protocol
+    </div>
+    <h1 class="hero-h1">Autonomous <span>Supply Chain</span><br>Intelligence</h1>
+    <p class="hero-p">Upload a warehouse image. Three AI agents detect inventory, find the best supplier, calculate shipping, and place the order — completely autonomously.</p>
+
+    <div class="process-row">
+      <div class="process-step">
+        <div class="ps-icon">🔍</div>
+        <div class="ps-num">01</div>
+        <div class="ps-title">Vision Agent</div>
+        <div class="ps-desc">Gemini 3 Flash counts items via code execution — deterministic, not guesswork</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-icon">🗄️</div>
+        <div class="ps-num">02</div>
+        <div class="ps-title">Supplier Agent</div>
+        <div class="ps-desc">AlloyDB ScaNN finds the nearest semantic supplier match instantly</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-icon">🚚</div>
+        <div class="ps-num">03</div>
+        <div class="ps-title">Logistics Agent</div>
+        <div class="ps-desc">Calculates real shipping cost, carrier and ETA autonomously</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-icon">✅</div>
+        <div class="ps-num">04</div>
+        <div class="ps-title">Order Placed</div>
+        <div class="ps-desc">Autonomous procurement complete via A2A agent communication</div>
+      </div>
+    </div>
+
+    <div class="tech-row">
+      <span class="tech-chip">Gemini 3 Flash</span>
+      <span class="tech-chip">AlloyDB ScaNN</span>
+      <span class="tech-chip">A2A Protocol</span>
+      <span class="tech-chip">Vertex AI Embeddings</span>
+      <span class="tech-chip">Cloud Run</span>
+      <span class="tech-chip">FastAPI WebSocket</span>
+    </div>
+  </div>
+
+  <div class="hero-bottom">
+    <div class="upload-wrapper">
+      <div class="upload-card">
+        <div class="uc-title">Upload Warehouse Image</div>
+        <div class="uc-sub">Drop an image or browse — PNG, JPG up to 10MB</div>
+
+        <div class="drop-zone"
+          :class="{'dz-active': isDragging}"
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @drop.prevent="handleDrop($event)"
+          @click="$refs.fileInput.click()">
+          <input type="file" x-ref="fileInput" accept="image/*" class="sr-only" @change="handleFileSelect($event)">
+
+          <template x-if="!uploadedImage">
+            <div class="dz-empty">
+              <div class="dz-icon">🖼️</div>
+              <div class="dz-primary">Drop image here or <span class="dz-link">browse files</span></div>
+              <div class="dz-secondary">Warehouse shelves, inventory photos, storage areas</div>
+            </div>
+          </template>
+
+          <template x-if="uploadedImage">
+            <div class="dz-preview">
+              <img :src="uploadedImage" alt="Preview" class="dz-img">
+              <div class="dz-change">Click to change image</div>
+            </div>
+          </template>
+        </div>
+
+        <button class="launch-btn"
+          @click="startAnalysis()"
+          :disabled="!uploadedFile || isProcessing"
+          :class="{'ready': uploadedFile && !isProcessing}">
+          <template x-if="!isProcessing">
+            <span style="display:flex;align-items:center;gap:8px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Initiate Autonomous Workflow
+            </span>
+          </template>
+          <template x-if="isProcessing">
+            <span style="display:flex;align-items:center;gap:8px">
+              <span class="lb-spin"></span>
+              Starting analysis...
+            </span>
+          </template>
+        </button>
+
+        <div x-show="sampleImages.length > 0">
+          <div class="sample-label">Or try a sample warehouse image</div>
+          <div class="sample-grid">
+            <template x-for="img in sampleImages" :key="img.name">
+              <button class="sample-thumb" @click="selectSampleImage(img.name)">
+                <img :src="`/api/test-image/${img.name}`" :alt="img.name">
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PIPELINE ═══ -->
+<div class="pipeline-page" x-show="step > 0" x-transition>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="sb-section-title">Pipeline Status</div>
+      <div class="pipe-steps">
+        <div class="pipe-step" :class="{'active': step >= 1, 'done': step > 1}">
+          <div class="pip-track"><div class="pip-dot"></div><div class="pip-line"></div></div>
+          <div class="pip-body"><div class="pip-name">Upload Image</div></div>
+        </div>
+        <div class="pipe-step" :class="{'active': step >= 1, 'done': step > 1}">
+          <div class="pip-track"><div class="pip-dot"></div><div class="pip-line"></div></div>
+          <div class="pip-body">
+            <div class="pip-name">Vision Analysis</div>
+            <div class="pip-detail" x-show="visionResult" x-text="visionResult?.item_count + ' ' + visionResult?.item_type"></div>
+          </div>
+        </div>
+        <div class="pipe-step" :class="{'active': step >= 2, 'done': step > 2}">
+          <div class="pip-track"><div class="pip-dot"></div><div class="pip-line"></div></div>
+          <div class="pip-body">
+            <div class="pip-name">Supplier Match</div>
+            <div class="pip-detail" x-show="supplierResult" x-text="supplierResult?.supplier"></div>
+          </div>
+        </div>
+        <div class="pipe-step" :class="{'active': step >= 3, 'done': step >= 4}">
+          <div class="pip-track"><div class="pip-dot"></div><div class="pip-line"></div></div>
+          <div class="pip-body">
+            <div class="pip-name">Place Order</div>
+            <div class="pip-detail" x-show="orderResult" x-text="orderResult?.orderId"></div>
+          </div>
+        </div>
+        <div class="pipe-step" :class="{'active': logisticsResult !== null && logisticsResult !== undefined}">
+          <div class="pip-track"><div class="pip-dot"></div></div>
+          <div class="pip-body">
+            <div class="pip-name">Logistics</div>
+            <div class="pip-detail" x-show="logisticsResult" x-text="logisticsResult?.shipping_cost"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div x-show="orchestratorText">
+      <div class="sb-section-title">Agent Activity</div>
+      <div class="activity-card">
+        <div class="activity-status">
+          <div class="act-dot" :class="isProcessing ? 'processing' : 'done'"></div>
+          <span class="act-text" x-text="orchestratorText"></span>
+        </div>
+        <div class="act-thought" x-show="currentThought" x-text="currentThought"></div>
+      </div>
+    </div>
+
+    <div x-show="visionResult">
+      <div class="sb-section-title">Vision Result</div>
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <span class="kpi-val" x-text="visionResult?.item_count"></span>
+          <span class="kpi-lbl">Items</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-val accent" x-text="visionResult?.confidence"></span>
+          <span class="kpi-lbl">Confidence</span>
+        </div>
+      </div>
+      <div class="kpi-type" x-text="visionResult?.item_type"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="pipe-main">
+
+    <!-- Agent Discovery Modal -->
+    <div class="modal-overlay" x-show="showAgentDiscovery" x-transition>
+      <div class="modal">
+        <div class="modal-top">
+          <div class="modal-tag">A2A Discovery</div>
+          <button @click="connectToAgent()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-agent-name" x-text="discoveryAgentType === 'vision' ? 'Vision Inspection Agent' : 'Acme Supplier Agent'"></div>
+          <div class="modal-agent-desc" x-show="discoveredAgent" x-text="discoveredAgent?.description"></div>
+          <template x-if="discoveredAgent">
+            <div class="modal-rows">
+              <div class="modal-row"><span class="mrow-key">Endpoint</span><span class="mrow-val mono" x-text="discoveredAgent.endpoint"></span></div>
+              <div class="modal-row"><span class="mrow-key">Version</span><span class="mrow-val mono" x-text="discoveredAgent.version"></span></div>
+              <div class="modal-row"><span class="mrow-key">Protocol</span><span class="mrow-val mono">A2A v0.3.0 · JSONRPC</span></div>
+              <div class="modal-row">
+                <span class="mrow-key">Skills</span>
+                <div class="modal-skills">
+                  <template x-for="s in (discoveredAgent.skills || [])" :key="s.id">
+                    <span class="modal-skill" x-text="s.name"></span>
+                  </template>
+                </div>
+              </div>
+              <div class="modal-row"><span class="mrow-key">Input</span><span class="mrow-val mono" x-text="(discoveredAgent.inputModes || []).join(', ')"></span></div>
+              <div class="modal-row"><span class="mrow-key">Streaming</span><span class="mrow-val" x-text="discoveredAgent.streaming ? 'Supported' : 'Not supported'"></span></div>
+            </div>
+          </template>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-connect-btn" @click="connectToAgent()">
+            <span class="conn-dot"></span>
+            Connected — Continue Pipeline
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vision Processing -->
+    <div class="stage" x-show="step === 1 && !visionResult" x-transition>
+      <div class="stage-header">
+        <div class="sh-left">
+          <div class="sh-icon indigo">🔍</div>
+          <div>
+            <div class="sh-title">Vision Analysis</div>
+            <div class="sh-sub">Gemini 3 Flash · Code Execution · Deterministic Counting</div>
+          </div>
+        </div>
+        <div class="sh-badge processing">
+          <div class="badge-dot"></div>
+          Analyzing image
+        </div>
+      </div>
+      <div class="vision-layout">
+        <div class="vision-img-panel">
+          <img :src="uploadedImage" class="vision-img" alt="Analyzing">
+          <div class="scan-overlay">
+            <div class="scan-line"></div>
+            <div class="scan-corner sc-tl"></div>
+            <div class="scan-corner sc-tr"></div>
+            <div class="scan-corner sc-bl"></div>
+            <div class="scan-corner sc-br"></div>
+          </div>
+        </div>
+        <div class="vision-info-panel">
+          <div class="vip-progress">
+            <div class="vip-prog-header">
+              <span class="vip-prog-label" x-text="currentSubstep || 'Initializing Gemini 3 Flash...'"></span>
+              <span class="vip-prog-pct" x-text="progressPercent + '%'"></span>
+            </div>
+            <div class="vip-prog-bar">
+              <div class="vip-prog-fill" :style="`width: ${progressPercent}%`"></div>
+            </div>
+          </div>
+          <div class="vip-thought" x-show="currentThought">
+            <div class="vip-thought-label">AI Reasoning</div>
+            <p class="vip-thought-text" x-text="currentThought"></p>
+          </div>
+          <div class="vip-code-badge" x-show="codeGenerating || codeExecuting">
+            <div class="vcb-dot"></div>
+            <span x-text="codeGenerating ? 'Writing Python detection script...' : 'Executing in sandbox...'"></span>
+          </div>
+          <div class="vip-tags">
+            <span class="vip-tag">Code Execution</span>
+            <span class="vip-tag">Deterministic</span>
+            <span class="vip-tag">Auditable</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vision Complete with bboxes -->
+    <div class="stage" x-show="visionResult && step < 2" x-transition>
+      <div class="stage-header">
+        <div class="sh-left">
+          <div class="sh-icon green">✓</div>
+          <div>
+            <div class="sh-title">Vision Analysis Complete</div>
+            <div class="sh-sub" x-text="`${visionResult?.item_count} ${visionResult?.item_type} detected · ${visionResult?.confidence} confidence`"></div>
+          </div>
+        </div>
+        <div class="sh-badge done" x-show="visionResult?.hasCodeExecution">
+          ⟨/⟩ Code-Verified
+        </div>
+      </div>
+      <div class="bbox-stage">
+        <div class="bbox-wrap">
+          <img :src="uploadedImage" class="bbox-img" alt="Result">
+          <template x-for="(box, i) in boundingBoxes" :key="i">
+            <div class="bbox-rect" :style="`top:${box.box_2d[0]/10}%;left:${box.box_2d[1]/10}%;height:${(box.box_2d[2]-box.box_2d[0])/10}%;width:${(box.box_2d[3]-box.box_2d[1])/10}%`">
+              <span class="bbox-lbl" x-text="box.label || 'Item'"></span>
+            </div>
+          </template>
+          <div class="bbox-count">
+            <span class="bc-num" x-text="visionResult?.item_count"></span>
+            <span class="bc-type" x-text="visionResult?.item_type"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Supplier Searching -->
+    <div class="stage" x-show="step === 2 && !supplierResult" x-transition>
+      <div class="stage-header">
+        <div class="sh-left">
+          <div class="sh-icon indigo">🗄️</div>
+          <div>
+            <div class="sh-title">Supplier Search</div>
+            <div class="sh-sub">AlloyDB ScaNN · Semantic Vector Search · Cosine Similarity</div>
+          </div>
+        </div>
+        <div class="sh-badge processing">
+          <div class="badge-dot"></div>
+          Searching database
+        </div>
+      </div>
+      <div class="supplier-search-body">
+        <div class="ssb-query" x-show="visionResult?.search_query">
+          <div class="ssb-q-label">Embedding Query</div>
+          <div class="ssb-q-text" x-text="visionResult?.search_query"></div>
+        </div>
+        <div class="ssb-viz">
+          <div class="ssb-db">
+            <div class="ssb-db-icon">🗄️</div>
+            <div class="ssb-db-label">AlloyDB</div>
+            <div class="ssb-db-sub">ScaNN Index</div>
+          </div>
+          <div class="ssb-bars">
+            <template x-for="i in 18" :key="i">
+              <div class="ssb-bar" :style="`height:${12 + Math.abs(Math.sin(i * 0.6)) * 48}px; animation-delay:${i * 0.07}s`"></div>
+            </template>
+          </div>
+        </div>
+        <div class="ssb-thought" x-show="currentThought" x-text="currentThought"></div>
+      </div>
+    </div>
+
+    <!-- Supplier Found -->
+    <div class="stage" x-show="step >= 2 && supplierResult && step < 3" x-transition>
+      <div class="stage-header">
+        <div class="sh-left">
+          <div class="sh-icon green">✓</div>
+          <div>
+            <div class="sh-title">Supplier Match Found</div>
+            <div class="sh-sub">AlloyDB ScaNN semantic search complete</div>
+          </div>
+        </div>
+        <div class="sh-badge confidence" x-text="supplierResult?.confidence"></div>
+      </div>
+      <div class="supplier-result-body">
+        <div class="sr-grid">
+          <div class="sr-field">
+            <div class="srf-label">Matched Part</div>
+            <div class="srf-val" x-text="supplierResult?.part"></div>
+          </div>
+          <div class="sr-field">
+            <div class="srf-label">Supplier</div>
+            <div class="srf-val accent" x-text="supplierResult?.supplier"></div>
+          </div>
+          <div class="sr-field">
+            <div class="srf-label">Match Confidence</div>
+            <div class="srf-val mono" x-text="supplierResult?.confidence"></div>
+          </div>
+          <div class="sr-field">
+            <div class="srf-label">Search Method</div>
+            <div class="srf-val">ScaNN Cosine Distance</div>
+          </div>
+        </div>
+        <button class="approve-btn" @click="proceedToOrder()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Approve & Place Order
+        </button>
+      </div>
+    </div>
+
+    <!-- Final: Order + Logistics -->
+    <div class="stage" x-show="step >= 3 && orderResult" x-transition>
+      <div class="stage-header">
+        <div class="sh-left">
+          <div class="sh-icon green">✓</div>
+          <div>
+            <div class="sh-title">Autonomous Procurement Complete</div>
+            <div class="sh-sub">Order placed · Logistics calculated · Pipeline finished</div>
+          </div>
+        </div>
+        <div class="sh-badge done" x-text="orderResult?.orderId"></div>
+      </div>
+      <div class="final-grid">
+        <!-- Order Details -->
+        <div class="final-card">
+          <div class="fc-head">
+            <div class="fc-head-icon">📋</div>
+            <div class="fc-head-title">Order Details</div>
+          </div>
+          <div class="fc-body">
+            <div class="fc-row"><span class="fc-label">Order ID</span><span class="fc-val accent" x-text="orderResult?.orderId"></span></div>
+            <div class="fc-row"><span class="fc-label">Part</span><span class="fc-val" x-text="supplierResult?.part"></span></div>
+            <div class="fc-row"><span class="fc-label">Supplier</span><span class="fc-val" x-text="supplierResult?.supplier"></span></div>
+            <div class="fc-row"><span class="fc-label">Quantity</span><span class="fc-val" x-text="visionResult?.item_count"></span></div>
+            <div class="fc-row"><span class="fc-label">Confidence</span><span class="fc-val green" x-text="visionResult?.confidence"></span></div>
+          </div>
+        </div>
+
+        <!-- Shipping Details -->
+        <div class="final-card" x-show="logisticsResult !== null && logisticsResult !== undefined" x-transition>
+          <div class="fc-head">
+            <div class="fc-head-icon">🚚</div>
+            <div class="fc-head-title">Shipping Details</div>
+            <div class="fc-head-tag">Logistics Agent</div>
+          </div>
+          <div class="fc-body">
+            <div class="fc-row"><span class="fc-label">Cost</span><span class="fc-val accent big" x-text="logisticsResult?.shipping_cost"></span></div>
+            <div class="fc-row"><span class="fc-label">Carrier</span><span class="fc-val" x-text="logisticsResult?.carrier"></span></div>
+            <div class="fc-row"><span class="fc-label">ETA</span><span class="fc-val" x-text="logisticsResult?.eta"></span></div>
+            <div class="fc-row"><span class="fc-label">From</span><span class="fc-val" x-text="logisticsResult?.origin"></span></div>
+            <div class="fc-row"><span class="fc-label">To</span><span class="fc-val" x-text="logisticsResult?.destination"></span></div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="final-card">
+          <div class="fc-head">
+            <div class="fc-head-icon">📊</div>
+            <div class="fc-head-title">Pipeline Summary</div>
+          </div>
+          <div class="summary-stats">
+            <div class="ss-stat"><span class="ss-val" x-text="visionResult?.item_count"></span><span class="ss-lbl">Items Found</span></div>
+            <div class="ss-stat"><span class="ss-val accent">3</span><span class="ss-lbl">AI Agents</span></div>
+            <div class="ss-stat"><span class="ss-val green" x-text="logisticsResult?.shipping_cost || '—'"></span><span class="ss-lbl">Shipping</span></div>
+            <div class="ss-stat"><span class="ss-val green">✓</span><span class="ss-lbl">Autonomous</span></div>
+          </div>
+          <button class="run-again-btn" @click="resetUpload()">↺ Run Another Analysis</button>
+        </div>
+
+        <!-- MCP Integrations Card -->
+        <div class="final-card" x-show="mcpResult !== null && mcpResult !== undefined" x-transition style="grid-column: 1 / -1;">
+          <div class="fc-head">
+            <div class="fc-head-icon">🔗</div>
+            <div class="fc-head-title">External Integrations via MCP</div>
+            <div class="fc-head-tag">Model Context Protocol</div>
+          </div>
+          <div style="display:flex;gap:12px;padding:14px 16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px">📧</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--text)">Gmail</div>
+                <div style="font-size:11px;margin-top:2px;" :style="mcpResult?.email_sent ? 'color:var(--green)' : 'color:var(--text-3)'" x-text="mcpResult?.email_sent ? 'Confirmation email sent ✓' : 'Not sent'"></div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:160px;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px">📅</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--text)">Google Calendar</div>
+                <div style="font-size:11px;margin-top:2px;" :style="mcpResult?.calendar_created ? 'color:var(--green)' : 'color:var(--text-3)'" x-text="mcpResult?.calendar_created ? 'Delivery reminder created ✓' : 'Not created'"></div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:160px;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px">📊</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--text)">Google Sheets</div>
+                <div style="font-size:11px;margin-top:2px;" :style="mcpResult?.sheet_logged ? 'color:var(--green)' : 'color:var(--text-3)'" x-text="mcpResult?.sheet_logged ? 'Order logged to spreadsheet ✓' : 'Not logged'"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+  <!-- Demo float -->
+  <div class="demo-float" x-data x-show="$store.app?.demoWaiting || false">
+    <button class="demo-float-btn">Continue →</button>
+  </div>
+
+  <!-- Demo continue button -->
+  <div style="position:fixed;bottom:28px;right:28px;z-index:300;display:none" id="demo-float">
+    <button onclick="window._alpineApp && window._alpineApp.demoContinue()" style="background:#6366f1;color:white;border:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,0.35);font-family:Inter,sans-serif;display:flex;align-items:center;gap:8px">Continue →</button>
+  </div>
+
+</div><!-- end #app -->
+
+<script src="/static/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</body>
+</html>

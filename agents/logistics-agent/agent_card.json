@@ -1,0 +1,17 @@
+{
+  "name": "Logistics Agent",
+  "description": "Autonomous shipping cost and ETA calculator. Given a supplier location, item weight, and destination, returns shipping cost and estimated delivery time.",
+  "version": "1.0.0",
+  "skills": [
+    {
+      "id": "calculate_shipping",
+      "name": "Calculate Shipping",
+      "description": "Calculates shipping cost and ETA based on supplier location, destination, item count, and item type.",
+      "tags": ["logistics", "shipping", "cost", "eta", "supply-chain"],
+      "examples": [
+        "Calculate shipping for 10 cardboard boxes from Chicago to New York",
+        "What is the shipping cost for 5 ball bearings from supplier Acme Corp?"
+      ]
+    }
+  ]
+}
