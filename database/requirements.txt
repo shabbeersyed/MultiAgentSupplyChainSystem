@@ -1,0 +1,3 @@
+google-cloud-alloydb-connector[pg8000]
+python-dotenv
+google-genai
