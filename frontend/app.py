@@ -26,6 +26,9 @@ import base64
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from a2a.types import MessageSendParams, SendMessageRequest
+import sys as _sys
+_sys.path.append(str(Path(__file__).resolve().parent.parent / "agents"))
+from governance import enforce_policy
 
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -787,6 +790,17 @@ async def analyze_image(file: UploadFile = File(...)):
 
         if not image_bytes:
             raise HTTPException(status_code=400, detail="Empty file uploaded")
+
+        # Governance check before any agent runs
+        content_type = file.content_type or "application/octet-stream"
+        gov_result = enforce_policy({
+            "type": "inventory_check",
+            "image": image_bytes,
+            "content_type": content_type,
+            "user": "warehouse_operator"
+        })
+        if not gov_result["approved"]:
+            raise HTTPException(status_code=400, detail=gov_result["reason"])
 
         asyncio.create_task(run_workflow_with_events(image_bytes))
 
