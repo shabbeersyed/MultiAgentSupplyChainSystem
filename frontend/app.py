@@ -520,6 +520,34 @@ async def run_workflow_with_events(image_bytes: bytes):
 
             await asyncio.sleep(0.5)
 
+            # ── Reorder Agent ──────────────────────────────────────────
+            import sys as _rs
+            _rs.path.insert(0, "agents/reorder-agent")
+            try:
+                from forecaster import assess_reorder, load_usage_data
+                usage_data = load_usage_data()
+                reorder = assess_reorder(part_name, real_count, 3, usage_data)
+                await manager.broadcast({
+                    "type": "reorder_assessment",
+                    "status": reorder["status"],
+                    "days_until_stockout": reorder["days_until_stockout"],
+                    "reason": reorder["reason"],
+                    "should_order": reorder["should_order"],
+                    "message": reorder["reason"],
+                    "timestamp": asyncio.get_event_loop().time(),
+                })
+                if not reorder["should_order"]:
+                    await manager.broadcast({
+                        "type": "order_skipped",
+                        "message": f"Order blocked — {reorder['reason']}",
+                        "timestamp": asyncio.get_event_loop().time(),
+                    })
+                    return
+            except Exception as _re:
+                import logging as _rl
+                _rl.getLogger(__name__).warning(f"Reorder agent failed: {_re}")
+            # ── End Reorder Agent ───────────────────────────────────────
+
             order_id = f"#{random.randint(9000, 9999)}"
             await manager.broadcast(
                 {
