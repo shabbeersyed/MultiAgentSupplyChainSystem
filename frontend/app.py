@@ -551,7 +551,8 @@ async def run_workflow_with_events(image_bytes: bytes):
                     return
             except Exception as _re:
                 import logging as _rl
-                _rl.getLogger(__name__).warning(f"Reorder agent failed: {_re}")
+                _rl.getLogger(__name__).error(f"Reorder agent failed: {_re}", exc_info=True)
+                await manager.broadcast({"type": "reorder_assessment", "status": "ERROR", "days_until_stockout": 0, "reorder_point": 0, "recommended_qty": 0, "predicted_daily_usage": 0, "should_order": True, "reason": f"Error: {str(_re)}", "lead_time_days": 3, "message": f"Error: {str(_re)}", "timestamp": 0})
             # ── End Reorder Agent ───────────────────────────────────────
 
             order_id = f"#{random.randint(9000, 9999)}"
