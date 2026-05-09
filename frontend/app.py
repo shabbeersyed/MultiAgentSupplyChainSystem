@@ -522,7 +522,9 @@ async def run_workflow_with_events(image_bytes: bytes):
 
             # ── Reorder Agent ──────────────────────────────────────────
             import sys as _rs
-            _rs.path.insert(0, "agents/reorder-agent")
+            _reorder_path = str(__import__("pathlib").Path(__file__).resolve().parent.parent / "agents" / "reorder-agent")
+            if _reorder_path not in _rs.path:
+                _rs.path.insert(0, _reorder_path)
             try:
                 from forecaster import assess_reorder, load_usage_data
                 usage_data = load_usage_data()
@@ -534,6 +536,10 @@ async def run_workflow_with_events(image_bytes: bytes):
                     "reason": reorder["reason"],
                     "should_order": reorder["should_order"],
                     "message": reorder["reason"],
+                    "reorder_point": reorder["reorder_point"],
+                    "recommended_qty": reorder["recommended_qty"],
+                    "predicted_daily_usage": reorder["predicted_daily_usage"],
+                    "lead_time_days": reorder["lead_time_days"],
                     "timestamp": asyncio.get_event_loop().time(),
                 })
                 if not reorder["should_order"]:
