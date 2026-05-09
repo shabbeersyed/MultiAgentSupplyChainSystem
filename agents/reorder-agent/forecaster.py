@@ -90,6 +90,9 @@ def assess_reorder(part_name, current_stock, lead_time_days, usage_data=None):
         "predicted_by": "prophet",
         "should_order": should_order,
         "reason": reason,
+        "current_stock": current_stock,
+        "min_stock": min_stock,
+        "lead_time_days": lead_time_days,
     }
 
 if __name__ == "__main__":
