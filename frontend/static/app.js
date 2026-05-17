@@ -448,6 +448,17 @@ function appState() {
                     this.orchestratorText = 'All integrations complete ✓';
                     break;
 
+                case 'execution_summary':
+                    this.executionSummary = {
+                        session_id:        data.session_id,
+                        intent:            data.intent,
+                        overall_status:    data.overall_status,
+                        total_duration_ms: data.total_duration_ms,
+                        stages:            data.stages,
+                    };
+                    this.orchestratorText = `Pipeline complete — ${data.overall_status} in ${data.total_duration_ms}ms`;
+                    break;
+
                 case 'pong':
                     break;
 
@@ -490,6 +501,7 @@ function appState() {
             this.mcpResult = null;
             this.pendingOrder = null;
             this.reorderResult = null;
+            this.executionSummary = null;
             this.orchestratorText = "System Ready";
             this.rawLogs = [];
             this.progressPercent = 0;
@@ -517,6 +529,7 @@ function appState() {
             this.supplierResult = null;
             this.orderResult = null;
             this.reorderResult = null;
+            this.executionSummary = null;
             this.rawLogs = [];
             const formData = new FormData();
             formData.append('file', this.uploadedFile);
