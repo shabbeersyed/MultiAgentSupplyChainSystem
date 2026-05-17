@@ -578,11 +578,6 @@ async def run_workflow_with_events(image_bytes: bytes):
                 }
             )
 
-            await manager.broadcast({
-                "type": "execution_summary",
-                **_tracker.to_dict(),
-                "timestamp": asyncio.get_event_loop().time(),
-            })
             await asyncio.sleep(0.5)
             await manager.broadcast(
                 {
@@ -818,23 +813,12 @@ async def run_mcp_integrations(
     except Exception as e:
         logger.error(f"Integration error: {e}", exc_info=True)
 
-    _tracker.complete_reporter(
-        shipping_cost="N/A", carrier="N/A", eta="N/A",
-        email_sent=results["email"],
-        calendar_created=results["calendar"],
-        sheet_logged=results["sheets"]
-    )
     await manager.broadcast({
         "type": "mcp_complete",
         "message": "Integrations complete",
         "email_sent": results["email"],
         "calendar_created": results["calendar"],
         "sheet_logged": results["sheets"],
-        "timestamp": asyncio.get_event_loop().time(),
-    })
-    await manager.broadcast({
-        "type": "execution_summary",
-        **_tracker.to_dict(),
         "timestamp": asyncio.get_event_loop().time(),
     })
 
