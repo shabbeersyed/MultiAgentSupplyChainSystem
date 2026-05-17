@@ -646,6 +646,12 @@ async def run_workflow_with_events(image_bytes: bytes):
                     }
                 )
                 logger.info(f"Logistics: {shipping_cost} via {carrier}, ETA {eta}")
+                _tracker.complete_reporter(shipping_cost, carrier, str(eta), False, False, False)
+                await manager.broadcast({
+                    "type": "execution_summary",
+                    **_tracker.to_dict(),
+                    "timestamp": asyncio.get_event_loop().time(),
+                })
 
                 await asyncio.sleep(0.5)
                 await manager.broadcast({
