@@ -578,6 +578,11 @@ async def run_workflow_with_events(image_bytes: bytes):
                 }
             )
 
+            await manager.broadcast({
+                "type": "execution_summary",
+                **_tracker.to_dict(),
+                "timestamp": asyncio.get_event_loop().time(),
+            })
             await asyncio.sleep(0.5)
             await manager.broadcast(
                 {

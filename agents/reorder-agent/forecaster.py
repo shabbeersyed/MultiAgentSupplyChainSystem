@@ -72,6 +72,8 @@ def assess_reorder(part_name, current_stock, lead_time_days, usage_data=None):
     if usage_data is None:
         usage_data = load_usage_data()
 
+    part_name = find_closest_part(part_name, usage_data)
+
     item = usage_data[part_name]
     min_stock = item["min_stock"]
 
