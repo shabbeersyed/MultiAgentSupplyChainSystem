@@ -54,11 +54,11 @@ def find_closest_part(part_name: str, usage_data: dict) -> str:
         return part_name
     matches = difflib.get_close_matches(part_name, keys, n=1, cutoff=0.3)
     if matches:
-        logger.info(f"Fuzzy matched '{part_name}' to '{matches[0]}'")
+        print(f"Fuzzy matched '{part_name}' to '{matches[0]'")
         return matches[0]
     # fallback — return closest by ratio
     best = max(keys, key=lambda k: difflib.SequenceMatcher(None, part_name.lower(), k.lower()).ratio())
-    logger.info(f"Ratio matched '{part_name}' to '{best}'")
+    print(f"Ratio matched '{part_name}' to '{best}'")
     return best
 
 
