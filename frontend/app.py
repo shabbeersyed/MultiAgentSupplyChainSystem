@@ -33,13 +33,6 @@ from governance import enforce_policy
 import sys as _et_sys
 _et_sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent / "agents"))
 from execution_tracker import ExecutionTracker, WEGAStage, StageStatus
-_tracker = ExecutionTracker()
-
-# ExecutionTracker - WEGA stage evidence layer
-import sys as _et_sys
-_et_sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent / "agents"))
-from execution_tracker import ExecutionTracker, WEGAStage, StageStatus
-_tracker = ExecutionTracker()
 
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(

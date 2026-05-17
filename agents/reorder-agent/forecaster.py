@@ -42,6 +42,26 @@ def forecast_daily_usage(history):
     predicted_daily = max(0.1, forecast.tail(7)["yhat"].mean())
     return round(predicted_daily, 2)
 
+def find_closest_part(part_name: str, usage_data: dict) -> str:
+    """
+    Fuzzy match part_name to closest key in usage_data.
+    Uses difflib SequenceMatcher for string similarity.
+    Replace with Vertex AI embeddings for production.
+    """
+    import difflib
+    keys = list(usage_data.keys())
+    if part_name in keys:
+        return part_name
+    matches = difflib.get_close_matches(part_name, keys, n=1, cutoff=0.3)
+    if matches:
+        logger.info(f"Fuzzy matched '{part_name}' to '{matches[0]}'")
+        return matches[0]
+    # fallback — return closest by ratio
+    best = max(keys, key=lambda k: difflib.SequenceMatcher(None, part_name.lower(), k.lower()).ratio())
+    logger.info(f"Ratio matched '{part_name}' to '{best}'")
+    return best
+
+
 def assess_reorder(part_name, current_stock, lead_time_days, usage_data=None):
     """
     The core decision:
