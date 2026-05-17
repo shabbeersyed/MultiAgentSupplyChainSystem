@@ -44,22 +44,29 @@ def forecast_daily_usage(history):
 
 def find_closest_part(part_name: str, usage_data: dict) -> str:
     """
-    Fuzzy match part_name to closest key in usage_data.
-    Uses difflib SequenceMatcher for string similarity.
-    Replace with Vertex AI embeddings for production.
+    Semantic match using Vertex AI text-embedding-005.
+    Falls back to difflib if Vertex AI is unavailable.
     """
-    import difflib
     keys = list(usage_data.keys())
     if part_name in keys:
         return part_name
-    matches = difflib.get_close_matches(part_name, keys, n=1, cutoff=0.3)
-    if matches:
-        print(f"Fuzzy matched '{part_name}' to '{matches[0]}'")
-        return matches[0]
-    # fallback — return closest by ratio
-    best = max(keys, key=lambda k: difflib.SequenceMatcher(None, part_name.lower(), k.lower()).ratio())
-    print(f"Ratio matched '{part_name}' to '{best}'")
-    return best
+    try:
+        import sys as _s
+        from pathlib import Path as _P
+        _matcher_path = str(_P(__file__).resolve().parent)
+        if _matcher_path not in _s.path:
+            _s.path.insert(0, _matcher_path)
+        from embedding_matcher import find_best_match
+        best, score = find_best_match(part_name, keys)
+        print(f"Semantic match: {part_name} -> {best} (score: {score:.3f})")
+        return best
+    except Exception as e:
+        print(f"Semantic match failed: {e} - using difflib fallback")
+        import difflib
+        matches = difflib.get_close_matches(part_name, keys, n=1, cutoff=0.3)
+        if matches:
+            return matches[0]
+        return max(keys, key=lambda k: difflib.SequenceMatcher(None, part_name.lower(), k.lower()).ratio())
 
 
 def assess_reorder(part_name, current_stock, lead_time_days, usage_data=None):
